@@ -44,7 +44,10 @@ namespace Scheduling
                 else
                 {
                     // Parse section part.
-                    parser?.ParseLine(line);
+                    if (parser != null)
+                    {
+                        parser.ParseLine(line);
+                    }
                 }
             }
 
