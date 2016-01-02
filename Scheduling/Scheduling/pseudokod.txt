@@ -1,0 +1,120 @@
+﻿Generalno:
+- jaka ograničenja ostvarujemo tako da prilikom odabira odbacujemo radnike čiji bi ih odabir prekršio
+- slaba ograničenja ostvarujemo tako da sortiramo po njihovim zahtjevima tako da odaberemo onog radnika koji je "najdalje" od "vlastitog zadovoljstva"
+
+
+for (d = 0; d < broj dana; d++)
+{
+	foreach (s in smjene)
+	(U svaku smjenu trebamo staviti određeni broj radnika)
+	{
+		radnici = svi radnici
+
+		for (n = 0; n < preporučeni broj ranika u smjeni s na dan d; n++)
+		(3. bullet slabih ograničenja, broja radnika smjene)
+		// Nikada nećemo u jednom danu uzeti više od preporučenog broja radnika, ali možda nećemo moći odabrati točno taj broj nego neki manji broj jer nam nije preostalo dovoljno radnika (npr. sve smo ih odbacili jakim ograničenjima).
+		{
+			odbaci radnike koji su ovaj dan već dobili smjenu
+			(1. bullet jakih org.)
+			
+			odbaci radnike koji ne mogu raditi u smjeni s jer su radili u nekoj ranijoj smjeni
+			(2. bullet jakih ogr., SECTION_SHIFTS - Shifts which cannot follow this shift)
+			
+			odbaci radnike koji ne mogu raditi u smjeni s radi ugovora
+			(3. bullet jakih ogr., SECTION_STAFF - MaxShifts)
+
+			odbaci radnike za koje vrijedi:
+				do sada sveukupni broj minuta koje su odravili + vrijeme trajanja smjene s > MaxTotalMinutes
+			(4. bullet jakih, SECTION_STAFF - MaxTotalMinutes)
+
+			odbaci radnike kojima bi rad u ovoj smjeni prekršio ograničenje maksimalnog broja uzastopnih smjena (takvi moraju na odmor)
+			(5. bullet jakih, SECTION_STAFF - MaxConsectiveShifts)
+
+			odbaci radnike koji još nisu bili na odmoru minimalni broj dana (moraju još biti na odmoru)
+			(7. bullet jakih, SECTION_STAFF - MinConsecutiveDaysOff)
+
+			ako je dan d subota ili nedjelja:
+				odbaci radnike koji su već na maksimalnom broju radnih vikenda
+			(8. bullet jakih)
+
+			odbaci radnike kojima je dan d označen kao neradni
+			(9. bullet jakih)
+
+			sortiraj radnike po preostalom broju minuta koje moraju odraditi tako da:
+				pri vrhu liste budu oni kojima je preostalo više minuta za odraditi - njih preferiramo radi jakog ograničenja.
+				to je sort descending po (MinTotalMinutes - CurrentTotalMinutes)
+			(4. bullet jakih, SECTION_STAFF - MinTotalMinutes)
+			spremi tako sortirane radnike u sortirani_po_preostalim_minutama
+
+			// Redoslijed odbacivanja radnika na temelju jakih ograničenja nije bitan za ispravnost.
+			// Međutim, algoritam će biti brži ako u ranijim odbacivanjima odbacimo što više jer onda u daljnjim odbacivanjima imamo manje radnike za provjeriti - tu treba razmisliti / vidjeti eksperimentalno što bi ih najviše odbacilo.
+
+			// Sada imamo određeni broj radnika koje nismo odbacili na temelju jakih ograničenja.
+			// Bilo kojeg da odaberemo, rješenje će biti ispravno što se jakih tiče.
+			// Sada iz dobivenog skupa radnika treba odabrati radnika tako da profitiramo
+
+			ako smo odbacili sve radnike:
+				idemo na sljedeći dan
+			ako nismo odbacili sve radnike:
+				idemo na slaba ograničenja
+
+			potencijalni = new List<Radnik>()
+			zabranjeni = new List<Radnik>()
+			
+			foreach (r in sortirani_po_preostalim_minutama)
+			{
+				ako je radnik r tražio da na dan d bude u smjeni s:
+					dodaj ga u listu potencijalni
+				(1. bullet slabih)
+
+				ako je radnik r tražio da na dan d NE bude u smjeni s:
+					dodaj ga u listu zabranjeni
+				(2. bullet slabih)
+			}
+
+			// Problematično nam je ako se u listi potencijalni nalaze radnici koji već imaju odrađen veliki broj minuta
+			// jer moramo osigurati da svi odrade svoj minimalni ukupni broj minuta koje moraju odraditi.
+
+			// Odabirom prvog radnika iz liste sortirani_po_preostalim_minutama najbolje osiguravamo jako ograničenje za minimalni broj ukupnih minuta rada.
+			// Međutim, takav odabir zanemaruje da se neki radnici nalaze u listi potencijalni - dobivamo kaznu radi kršenja slabog ograničenja.
+
+			// Znači prilikom odabira želimo dvije stvari:
+			// - odabrati radnika koji je najdalje od potrebnog broja odrađenih minuta, kako bi se približio svojem zahtjevi za minimalni
+			// - odabrati radnika koji je u listi potencijalni - poboljšati će nam rezultate slabih ograničenja.
+
+			odabrani_radnik = null;
+			granica = 0.5
+
+			ako lista potencijalni ima barem jedan element 
+			{
+				foreach (r in sortirani_po_preostalim_minutama)
+				{
+					ako je radnik r u zabranjeni:
+						continue;
+					pozicija = index radnika r u sortirani_po_preostalim_minutama
+					duljina = broj radnika u sortirani_po_preostalim_minutama
+					ako je radnik r u potencijalni:
+						ako je pozicija / duljina <= granica
+							// uzimamo ga ako je u gornjoj polovici liste (u slučaju da je granica 0.5)
+							// ako je granica npr. 0.25, biti će odabran ako je u gornjoj trećini liste.
+							// čim je granica manji broj, bliže smo osiguravanju jakog ograničenja minimalnog broja minuta.
+							odabrani_radnik = r
+							break;
+						inače
+							continue;
+				}
+			}
+
+			ako je odabrani_radnik == null
+			{
+				// Ovo je slučaj ako nismo uspjeli odabrati radnika na temelju preferenci jer:
+				//	ili nitko nije tražio da radi u ovoj smjeni na ovaj dan
+				//  ili su svi koji su tražili da rade u ovoj smjeni na ovaj dan prenisko na listi sortirani_po_preostalim_minutama te bi njihov odabir mogao potencijalno uzrokovati kršenje jakog ograničenja
+				odabrani_radnik = prvi iz liste sortirani_po_preostalim_minutama
+			}
+
+			// Konačno, dodijeli radnika smjeni s dana d.
+			dodijeli radniku odabrani_radnik smjenu s u danu d.
+		}
+	}
+}
