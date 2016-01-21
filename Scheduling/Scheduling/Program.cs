@@ -72,15 +72,18 @@ namespace Scheduling
                 }
                 Console.WriteLine();
             }
-            Console.WriteLine("Number of staff: " + Instance.Staff.Count);
-            int totalDaysOff = Instance.Staff.Sum(s => s.Value.DaysOff.Count);
-            Console.WriteLine("Average (per worker) number of days off requested: " + Math.Round((double) totalDaysOff / Instance.Staff.Count, 2));
-            int totalShiftOn = Instance.Staff.Sum(s => s.Value.ShiftOnRequests.Count);
-            Console.WriteLine("Average (per worker) number of shift on requests: " + Math.Round((double) totalShiftOn / Instance.Staff.Count, 2));
-            int totalShiftOff = Instance.Staff.Sum(s => s.Value.ShiftOffRequests.Count);
-            Console.WriteLine("Average (per worker) number of shift off requests: " + Math.Round((double) totalShiftOff / Instance.Staff.Count, 2));
+            Console.WriteLine("Number of staff: " + Instance.Workers.Count);
+
+            int totalDaysOff = Instance.Workers.Sum(s => s.Value.DaysOff.Count);
+            Console.WriteLine("Average (per worker) number of days off requested: " + Math.Round((double) totalDaysOff / Instance.Workers.Count, 2));
+            int totalShiftOn = Instance.Workers.Sum(s => s.Value.ShiftOnRequests.Count);
+            Console.WriteLine("Average (per worker) number of shift on requests: " + Math.Round((double) totalShiftOn / Instance.Workers.Count, 2));
+            int totalShiftOff = Instance.Workers.Sum(s => s.Value.ShiftOffRequests.Count);
+            Console.WriteLine("Average (per worker) number of shift off requests: " + Math.Round((double) totalShiftOff / Instance.Workers.Count, 2));
             int sumDailyRequirement = Instance.DailyRequirements.Sum(s => s.Value.Sum(r => r.Requirement));
             Console.WriteLine("Average (per day) number of workers needed (for all shifts together): " + Math.Round((double) sumDailyRequirement / Instance.Days, 2));
+
+            Instance.Assign();
 
             Console.ReadLine();
         }

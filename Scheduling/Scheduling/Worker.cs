@@ -11,14 +11,22 @@ namespace Scheduling
         public string ID { get; set; }
         public Dictionary<string, int> MaxShifts { get; set; }
         public int MaxTotalMinutes { get; set; }
+        public int WorkedMinutes { get; set; }
+        public float RemainingMinutes { get
+            {
+                return (float) WorkedMinutes / MinTotalMinutes;
+            }
+        }
         public int MinTotalMinutes { get; set; }
         public int MaxConsecutiveShifts { get; set; }
         public int MinConsecutiveShifts { get; set; }
         public int MinConsecutiveDaysOff { get; set; }
+        public int WorkedWeekends { get; set; }
         public int MaxWeekends { get; set; }
         public List<int> DaysOff { get; set; }
         public Dictionary<int, WeightedRequest> ShiftOnRequests { get; set; }
         public Dictionary<int, WeightedRequest> ShiftOffRequests { get; set; }
+        public Dictionary<int, Assignment> Assignments { get; set; }
 
         public Worker()
         {
@@ -26,6 +34,7 @@ namespace Scheduling
             DaysOff = new List<int>();
             ShiftOnRequests = new Dictionary<int, WeightedRequest>();
             ShiftOffRequests = new Dictionary<int, WeightedRequest>();
+            Assignments = new Dictionary<int, Assignment>();
         }
     }
 }

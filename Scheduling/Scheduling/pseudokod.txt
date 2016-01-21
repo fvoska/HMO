@@ -30,6 +30,8 @@ for (d = 0; d < broj dana; d++)
 			odbaci radnike kojima bi rad u ovoj smjeni prekršio ograničenje maksimalnog broja uzastopnih smjena (takvi moraju na odmor)
 			(5. bullet jakih, SECTION_STAFF - MaxConsectiveShifts)
 
+			// KAKO ĆEMO 6. BULLET RJEŠITI???
+
 			odbaci radnike koji još nisu bili na odmoru minimalni broj dana (moraju još biti na odmoru)
 			(7. bullet jakih, SECTION_STAFF - MinConsecutiveDaysOff)
 
@@ -89,8 +91,8 @@ for (d = 0; d < broj dana; d++)
 			{
 				foreach (r in sortirani_po_preostalim_minutama)
 				{
-					ako je radnik r u zabranjeni:
-						continue;
+					//ako je radnik r u zabranjeni:
+					//continue;
 					pozicija = index radnika r u sortirani_po_preostalim_minutama
 					duljina = broj radnika u sortirani_po_preostalim_minutama
 					ako je radnik r u potencijalni:
