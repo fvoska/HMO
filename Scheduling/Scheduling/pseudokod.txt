@@ -30,8 +30,6 @@ for (d = 0; d < broj dana; d++)
 			odbaci radnike kojima bi rad u ovoj smjeni prekršio ograničenje maksimalnog broja uzastopnih smjena (takvi moraju na odmor)
 			(5. bullet jakih, SECTION_STAFF - MaxConsectiveShifts)
 
-			// KAKO ĆEMO 6. BULLET RJEŠITI???
-
 			odbaci radnike koji još nisu bili na odmoru minimalni broj dana (moraju još biti na odmoru)
 			(7. bullet jakih, SECTION_STAFF - MinConsecutiveDaysOff)
 
@@ -41,6 +39,11 @@ for (d = 0; d < broj dana; d++)
 
 			odbaci radnike kojima je dan d označen kao neradni
 			(9. bullet jakih)
+
+			// sada imamo određeni skup filtriranih korisnika koji bi mogli biti dodijeljeni u ovu smjenu
+			ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja smjena koje moraju odraditi za redom:
+				odbaci sve ostale radnike i nastavi dalje samo s njima.
+			(6. bullet jakih)
 
 			sortiraj radnike po preostalom broju minuta koje moraju odraditi tako da:
 				pri vrhu liste budu oni kojima je preostalo više minuta za odraditi - njih preferiramo radi jakog ograničenja.
@@ -91,8 +94,8 @@ for (d = 0; d < broj dana; d++)
 			{
 				foreach (r in sortirani_po_preostalim_minutama)
 				{
-					//ako je radnik r u zabranjeni:
-					//continue;
+					ako je radnik r u zabranjeni:
+					continue;
 					pozicija = index radnika r u sortirani_po_preostalim_minutama
 					duljina = broj radnika u sortirani_po_preostalim_minutama
 					ako je radnik r u potencijalni:
