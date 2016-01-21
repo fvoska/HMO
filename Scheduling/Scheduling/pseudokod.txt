@@ -41,8 +41,8 @@ for (d = 0; d < broj dana; d++)
 			(9. bullet jakih)
 
 			// sada imamo određeni skup filtriranih korisnika koji bi mogli biti dodijeljeni u ovu smjenu
-			ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja smjena koje moraju odraditi za redom:
-				odbaci sve ostale radnike i nastavi dalje samo s njima.
+			ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja uzastopnih radnih dana (smjena, 1 smjena == 1 dan) koje moraju odraditi za redom:
+				odbaci sve ostale radnike i nastavi dalje samo s onima koji su u opasnosti da ne zadovolje ograničenje minimalnog broja uzastopnih radnih dana.
 			(6. bullet jakih)
 
 			sortiraj radnike po preostalom broju minuta koje moraju odraditi tako da:
