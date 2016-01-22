@@ -85,6 +85,28 @@ namespace Scheduling
 
             Instance.Assign();
 
+            StringBuilder sb = new StringBuilder();
+            foreach (Worker w in Instance.Workers.Values)
+            {
+                sb.Append(w.ID + '\t' + (w.WorkedMinutes < w.MinTotalMinutes || w.WorkedMinutes > w.MaxTotalMinutes) + '\t');
+                for (int day = 0; day < Instance.Days; day++)
+                {
+                    string a = "-";
+                    if (w.Assignments.ContainsKey(day))
+                    {
+                        a = w.Assignments[day].Shift.ID;
+                    }
+                    sb.Append(a);
+                    sb.Append('\t');
+                }
+                sb.Append('\n');
+            }
+
+            StreamWriter ofile = new StreamWriter("test.txt");
+            ofile.WriteLine(sb.ToString());
+
+            Console.WriteLine("Done, check the file.");
+
             Console.ReadLine();
         }
     }

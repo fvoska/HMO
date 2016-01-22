@@ -129,7 +129,7 @@ namespace Scheduling
 
         public static void Assign()
         {
-            for (int day = 0; day < 3; day++)
+            for (int day = 0; day < Days; day++)
             {
                 bool isWeekend = false;
                 if ((day + 1) % 7 == 0 || (day + 2) % 7 == 0)
@@ -146,7 +146,7 @@ namespace Scheduling
 
                     // Nikada nećemo u jednom danu uzeti više od preporučenog broja radnika, ali možda nećemo moći odabrati točno taj broj nego neki manji broj jer nam nije preostalo dovoljno radnika (npr. sve smo ih odbacili jakim ograničenjima).
                     // (3.bullet slabih ogr., broj radnika smjene)
-                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement; assignedNumberOfWorkers++)
+                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement + 2; assignedNumberOfWorkers++)
                     {
                         Console.WriteLine("\t\tTrying to assign worker " + (assignedNumberOfWorkers + 1) + "/" + coverRequirements.Requirement);
 
@@ -192,7 +192,36 @@ namespace Scheduling
                         removeByDaysOff(potentialWorkers, day);
                         Console.WriteLine("\t\t\tConsidering " + potentialWorkers.Count + " workers after removing workers who have this day off.");
 
-                        var orderedWorkers = potentialWorkers.Values.OrderBy(w => w.RemainingMinutes).ToList();
+                        // Ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja uzastopnih radnih dana(smjena, 1 smjena == 1 dan) koje moraju odraditi za redom:
+                        //      Odbaci sve ostale radnike i nastavi dalje samo s onima koji su u opasnosti da ne zadovolje ograničenje minimalnog broja uzastopnih radnih dana.
+                        // (6.bullet jakih)
+                        bool someoneHasNotWorkedEnoughConsecutiveShifts = checkForMinConsecutiveShifts(potentialWorkers, day);
+                        Dictionary<string, Worker> tempWorkers = potentialWorkers.ToDictionary(d => d.Key, d => d.Value);
+                        if (someoneHasNotWorkedEnoughConsecutiveShifts)
+                        {
+                            removeWhoWorkedMinConsecutiveShifts(tempWorkers, day);
+                            if (tempWorkers.Count > 0)
+                            {
+                                // Preostali su oni koji nisu odradili minimalni broj uzastopnih smjena.
+                                Console.WriteLine("\t\t\tConsidering " + tempWorkers.Count + " workers after removing workers who worked min consecutive days.");
+                                potentialWorkers = tempWorkers;
+                            }
+                            else
+                            {
+                                Console.WriteLine("\t\t\tAll workers have worked min consecutive days.");
+                            }
+                        }
+
+                        if (potentialWorkers.Count > 0)
+                        {
+                            var workersByRemainingMinutes = potentialWorkers.Values.OrderBy(w => w.RemainingMinutes).ToList();
+                            Worker aw = workersByRemainingMinutes.First();
+                            Assignment a = new Assignment();
+                            a.Day = day;
+                            a.Shift = Shifts[shift.Value.ID];
+                            a.Worker = aw;
+                            aw.Assignments[day] = a;
+                        }
                     }
                 }
             }
@@ -210,6 +239,7 @@ namespace Scheduling
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }
@@ -234,6 +264,7 @@ namespace Scheduling
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }
@@ -250,6 +281,7 @@ namespace Scheduling
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }
@@ -276,6 +308,7 @@ namespace Scheduling
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }
@@ -285,22 +318,32 @@ namespace Scheduling
             List<string> toRemove = new List<string>();
             foreach (Worker w in workers.Values)
             {
-                var hasNotHadEnoughDaysOff = false;
-                for (var d = 1; d <= w.MinConsecutiveDaysOff; d++)
+                if (!w.Assignments.ContainsKey(day - 1))
                 {
-                    if (w.Assignments.ContainsKey(day - d))
+                    // Nije radio je jučer, provjeri je li odmarao minimalni broj dana.
+
+                    var hasNotHadEnoughDaysOff = false;
+                    for (var d = 1; d <= w.MinConsecutiveDaysOff; d++)
                     {
-                        hasNotHadEnoughDaysOff = true;
-                        break;
+                        if (day - d < 0)
+                        {
+                            break;
+                        }
+                        if (w.Assignments.ContainsKey(day - d))
+                        {
+                            hasNotHadEnoughDaysOff = true;
+                            break;
+                        }
                     }
-                }
-                if (hasNotHadEnoughDaysOff)
-                {
-                    toRemove.Add(w.ID);
+                    if (hasNotHadEnoughDaysOff)
+                    {
+                        toRemove.Add(w.ID);
+                    }
                 }
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }
@@ -317,6 +360,7 @@ namespace Scheduling
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }
@@ -333,6 +377,73 @@ namespace Scheduling
             }
             foreach (string wr in toRemove)
             {
+                Console.WriteLine("\t\t\tRemoving " + wr);
+                workers.Remove(wr);
+            }
+        }
+
+        private static bool checkForMinConsecutiveShifts(Dictionary<string, Worker> workers, int day)
+        {
+            bool someoneHasNotWorkedEnough = false;
+            foreach (Worker w in workers.Values)
+            {
+                var hasHadEnoughConsecutiveDays = true;
+                if (w.Assignments.ContainsKey(day - 1))
+                {
+                    for (var d = 1; d <= w.MinConsecutiveShifts; d++)
+                    {
+                        if (day - d < 0)
+                        {
+                            break;
+                        }
+                        if (!w.Assignments.ContainsKey(day - d))
+                        {
+                            hasHadEnoughConsecutiveDays = false;
+                            break;
+                        }
+                    }
+                    if (hasHadEnoughConsecutiveDays)
+                    {
+                        someoneHasNotWorkedEnough = true;
+                        break;
+                    }
+                }
+            }
+            return someoneHasNotWorkedEnough;
+        }
+
+        
+        private static void removeWhoWorkedMinConsecutiveShifts(Dictionary<string, Worker> workers, int day)
+        {
+            List<string> toRemove = new List<string>();
+            foreach (Worker w in workers.Values)
+            {
+                var hasHadEnoughConsecutiveDays = true;
+                if (w.Assignments.ContainsKey(day - 1))
+                {
+                    // Radio je jučer, provjeri je li radio minimalni broj dana.
+
+                    for (var d = 1; d <= w.MinConsecutiveShifts; d++)
+                    {
+                        if (day - d < 0)
+                        {
+                            break;
+                        }
+                        if (!w.Assignments.ContainsKey(day - d))
+                        {
+                            hasHadEnoughConsecutiveDays = false;
+                            break;
+                        }
+                    }
+                    if (hasHadEnoughConsecutiveDays)
+                    {
+                        toRemove.Add(w.ID);
+                    }
+                }
+            }
+            foreach (string wr in toRemove)
+            {
+                Console.WriteLine("\t\t\tRemoving " + wr);
                 workers.Remove(wr);
             }
         }

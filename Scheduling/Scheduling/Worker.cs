@@ -11,7 +11,11 @@ namespace Scheduling
         public string ID { get; set; }
         public Dictionary<string, int> MaxShifts { get; set; }
         public int MaxTotalMinutes { get; set; }
-        public int WorkedMinutes { get; set; }
+        public int WorkedMinutes { get
+            {
+                return Assignments.Values.Sum(a => a.Shift.Length);
+            }
+        }
         public float RemainingMinutes { get
             {
                 return (float) WorkedMinutes / MinTotalMinutes;
