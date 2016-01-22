@@ -162,6 +162,8 @@ namespace Scheduling
                         removeByShiftRotation(potentialWorkers, day, shift.Value);
                         Console.WriteLine("\t\t\tConsidering " + potentialWorkers.Count + " workers after removing workers based on shift rotation.");
 
+                        // TODO: Fali 3. bullet
+
                         // Odbaci radnike za koje vrijedi:
                         //      Do sada sveukupni broj minuta koje su odravili + vrijeme trajanja smjene s > MaxTotalMinutes.
                         // (4.bullet jakih, SECTION_STAFF - MaxTotalMinutes)
@@ -209,6 +211,7 @@ namespace Scheduling
                             else
                             {
                                 Console.WriteLine("\t\t\tAll workers have worked min consecutive days.");
+                                potentialWorkers = tempWorkers;
                             }
                         }
 
