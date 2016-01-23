@@ -40,5 +40,10 @@ namespace Scheduling
             ShiftOffRequests = new Dictionary<int, WeightedRequest>();
             Assignments = new Dictionary<int, Assignment>();
         }
+
+        public int WorkedShiftsByType(string id)
+        {
+            return Assignments.Values.Count(a => a.Shift.ID == id);
+        }
     }
 }

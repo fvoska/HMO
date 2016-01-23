@@ -146,7 +146,7 @@ namespace Scheduling
 
                     // Nikada nećemo u jednom danu uzeti više od preporučenog broja radnika, ali možda nećemo moći odabrati točno taj broj nego neki manji broj jer nam nije preostalo dovoljno radnika (npr. sve smo ih odbacili jakim ograničenjima).
                     // (3.bullet slabih ogr., broj radnika smjene)
-                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement + 2; assignedNumberOfWorkers++)
+                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement; assignedNumberOfWorkers++)
                     {
                         Console.WriteLine("\t\tTrying to assign worker " + (assignedNumberOfWorkers + 1) + "/" + coverRequirements.Requirement);
 
@@ -163,6 +163,8 @@ namespace Scheduling
                         Console.WriteLine("\t\t\tConsidering " + potentialWorkers.Count + " workers after removing workers based on shift rotation.");
 
                         // TODO: Fali 3. bullet
+                        removeByShiftType(potentialWorkers, shift.Value);
+                        Console.WriteLine("\t\t\tConsidering " + potentialWorkers.Count + " workers after removing workers based on shift type.");
 
                         // Odbaci radnike za koje vrijedi:
                         //      Do sada sveukupni broj minuta koje su odravili + vrijeme trajanja smjene s > MaxTotalMinutes.
@@ -211,7 +213,7 @@ namespace Scheduling
                             else
                             {
                                 Console.WriteLine("\t\t\tAll workers have worked min consecutive days.");
-                                potentialWorkers = tempWorkers;
+                                //potentialWorkers = new Dictionary<string, Worker>();
                             }
                         }
 
@@ -224,9 +226,107 @@ namespace Scheduling
                             a.Shift = Shifts[shift.Value.ID];
                             a.Worker = aw;
                             aw.Assignments[day] = a;
+                            if (isWeekend)
+                            {
+                                aw.WorkedWeekends++;
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        public static void PostAssign()
+        {
+            for (int day = 0; day < Days; day++)
+            {
+                foreach (Worker w in Workers.Values)
+                {
+                    if (w.MinConsecutiveShifts > 1 && day > 0 && day < Days - 1)
+                    {
+                        if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1) && w.Assignments.ContainsKey(day + 1))
+                        {
+                            // Našli smo gdje je radio samo jedan dan.
+                            int numBefore = 0;
+                            for (int onMin = 0; onMin < w.MinConsecutiveShifts; onMin++)
+                            {
+                                bool canInsertBefore = true;
+                                for (int dayBack = 1; dayBack <= w.MinConsecutiveDaysOff; dayBack++)
+                                {
+                                    if (w.Assignments.ContainsKey(day - onMin - dayBack))
+                                    {
+                                        canInsertBefore = false;
+                                        break;
+                                    }
+                                }
+                                if (canInsertBefore)
+                                {
+                                    numBefore++;
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                            if (numBefore + 1 >= w.MinConsecutiveShifts)
+                            {
+                                for (int onMin = 1; onMin <= w.MinConsecutiveShifts; onMin++)
+                                {
+                                    if (day - onMin < 1)
+                                    {
+                                        break;
+                                    }
+                                    Assignment a = new Assignment();
+                                    a.Day = day - onMin;
+                                    a.Worker = w;
+                                    a.Shift = null;
+                                    if (w.ShiftOnRequests.ContainsKey(day - onMin))
+                                    {
+                                        a.Shift = Shifts[w.ShiftOnRequests[day - onMin].ID];
+                                    }
+                                    else
+                                    {
+                                        foreach (string shiftID in Shifts.Keys)
+                                        {
+                                            if (w.WorkedShiftsByType(shiftID) + 1 >= w.MaxShifts[shiftID])
+                                            {
+                                                continue;
+                                            }
+                                            else
+                                            {
+                                                if (ShiftCanBeBefore(shiftID, w.Assignments[day - onMin].Shift.ID))
+                                                {
+                                                    a.Shift = w.Assignments[day - onMin].Shift;
+                                                    break;
+                                                }
+                                                else
+                                                {
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (a.Shift != null)
+                                    {
+                                        w.Assignments[day - onMin] = a;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static bool ShiftCanBeBefore(string idDesired, string idAfter)
+        {
+            Shift desiredShift = Shifts[idDesired];
+            if (desiredShift.ProhibitsFollowingShifts.Contains(idAfter))
+            {
+                return false;
+            }
+            else
+            {
+                return true;
             }
         }
 
@@ -263,6 +363,23 @@ namespace Scheduling
                     {
                         toRemove.Add(w.ID);
                     }
+                }
+            }
+            foreach (string wr in toRemove)
+            {
+                Console.WriteLine("\t\t\tRemoving " + wr);
+                workers.Remove(wr);
+            }
+        }
+
+        private static void removeByShiftType(Dictionary<string, Worker> workers, Shift shift)
+        {
+            List<string> toRemove = new List<string>();
+            foreach (Worker w in workers.Values)
+            {
+                if (w.WorkedShiftsByType(shift.ID) >= w.MaxShifts[shift.ID])
+                {
+                    toRemove.Add(w.ID);
                 }
             }
             foreach (string wr in toRemove)

@@ -84,26 +84,24 @@ namespace Scheduling
             Console.WriteLine("Average (per day) number of workers needed (for all shifts together): " + Math.Round((double) sumDailyRequirement / Instance.Days, 2));
 
             Instance.Assign();
+            Instance.PostAssign();
 
-            StringBuilder sb = new StringBuilder();
+            StreamWriter ofile = new StreamWriter("test.txt");
             foreach (Worker w in Instance.Workers.Values)
             {
-                sb.Append(w.ID + '\t' + (w.WorkedMinutes < w.MinTotalMinutes || w.WorkedMinutes > w.MaxTotalMinutes) + '\t');
+                //ofile.Write(w.WorkedMinutes + "\t\t");
                 for (int day = 0; day < Instance.Days; day++)
                 {
-                    string a = "-";
+                    string a = "";
                     if (w.Assignments.ContainsKey(day))
                     {
                         a = w.Assignments[day].Shift.ID;
                     }
-                    sb.Append(a);
-                    sb.Append('\t');
+                    ofile.Write(a);
+                    ofile.Write('\t');
                 }
-                sb.Append('\n');
+                ofile.Write('\n');
             }
-
-            StreamWriter ofile = new StreamWriter("test.txt");
-            ofile.WriteLine(sb.ToString());
 
             Console.WriteLine("Done, check the file.");
 
