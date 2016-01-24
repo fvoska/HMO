@@ -162,7 +162,7 @@ namespace Scheduling
                         removeByShiftRotation(potentialWorkers, day, shift.Value);
                         Console.WriteLine("\t\t\tConsidering " + potentialWorkers.Count + " workers after removing workers based on shift rotation.");
 
-                        // TODO: Fali 3. bullet
+                        // (3. bullet jakit ogr.)
                         removeByShiftType(potentialWorkers, shift.Value);
                         Console.WriteLine("\t\t\tConsidering " + potentialWorkers.Count + " workers after removing workers based on shift type.");
 
@@ -199,7 +199,7 @@ namespace Scheduling
                         // Ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja uzastopnih radnih dana(smjena, 1 smjena == 1 dan) koje moraju odraditi za redom:
                         //      Odbaci sve ostale radnike i nastavi dalje samo s onima koji su u opasnosti da ne zadovolje ograničenje minimalnog broja uzastopnih radnih dana.
                         // (6.bullet jakih)
-                        bool someoneHasNotWorkedEnoughConsecutiveShifts = checkForMinConsecutiveShifts(potentialWorkers, day);
+                        /*bool someoneHasNotWorkedEnoughConsecutiveShifts = checkForMinConsecutiveShifts(potentialWorkers, day);
                         Dictionary<string, Worker> tempWorkers = potentialWorkers.ToDictionary(d => d.Key, d => d.Value);
                         if (someoneHasNotWorkedEnoughConsecutiveShifts)
                         {
@@ -215,12 +215,40 @@ namespace Scheduling
                                 Console.WriteLine("\t\t\tAll workers have worked min consecutive days.");
                                 //potentialWorkers = new Dictionary<string, Worker>();
                             }
-                        }
+                        }*/
 
                         if (potentialWorkers.Count > 0)
                         {
                             var workersByRemainingMinutes = potentialWorkers.Values.OrderBy(w => w.RemainingMinutes).ToList();
-                            Worker aw = workersByRemainingMinutes.First();
+                            int depthLimit = 50;
+                            int depth = 0;
+                            float remMin = workersByRemainingMinutes.First().RemainingMinutes;
+                            Worker aw = null;
+                            foreach (Worker ww in workersByRemainingMinutes)
+                            {
+                                if (ww.ShiftOffRequests.ContainsKey(day))
+                                {
+                                    continue;
+                                }
+                                if (ww.RemainingMinutes != remMin)
+                                {
+                                    remMin = ww.RemainingMinutes;
+                                    depth++;
+                                }
+                                if (depth > depthLimit)
+                                {
+                                    break;
+                                }
+                                if (ww.ShiftOnRequests.ContainsKey(day))
+                                {
+                                    aw = ww;
+                                    break;
+                                }
+                            }
+                            if (aw == null)
+                            {
+                                aw = workersByRemainingMinutes.First();
+                            }
                             Assignment a = new Assignment();
                             a.Day = day;
                             a.Shift = Shifts[shift.Value.ID];
@@ -234,9 +262,189 @@ namespace Scheduling
                     }
                 }
             }
+            //TryFill();
+            //FixSingleDayBefore();
+            //FixSingleDayAfter();
         }
 
-        public static void PostAssign()
+        public static void TryFill()
+        {
+            foreach (Worker w in Workers.Values)
+            {
+                int sum = 0;
+                int count = 0;
+                foreach (string shiftID in w.MaxShifts.Keys)
+                {
+                    count++;
+                    sum += Shifts[shiftID].Length;
+                }
+                int avgShiftLength = sum / count;
+                int moreMinutes = w.MinTotalMinutes - w.WorkedMinutes + (w.MaxTotalMinutes - w.MinTotalMinutes) / 2;
+                int moreShifts = moreMinutes / avgShiftLength;
+
+                int moreGiven = 0;
+                for (int day = 0; day < Days; day++)
+                {
+                    if (w.WorkedMinutes >= w.MinTotalMinutes)
+                    {
+                        break;
+                    }
+                    if (w.DaysOff.Contains(day))
+                    {
+                        continue;
+                    }
+                    if (!w.Assignments.ContainsKey(day))
+                    {
+                        int holeLeftLength = 0;
+                        int dayBack = 1;
+                        while (true)
+                        {
+                            if (w.DaysOff.Contains(day - dayBack))
+                            {
+                                break;
+                            }
+                            if (w.Assignments.ContainsKey(day - dayBack) || day - dayBack < 1)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                holeLeftLength++;
+                            }
+                            dayBack++;
+                        }
+                        int holeRightLength = 0;
+                        int dayForward = 1;
+                        while (true)
+                        {
+                            if (w.DaysOff.Contains(day + dayForward))
+                            {
+                                break;
+                            }
+                            if (w.Assignments.ContainsKey(day + dayForward) || day + dayForward > Days - 1)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                holeRightLength++;
+                            }
+                            dayForward++;
+                        }
+
+                        int holeLength = holeLeftLength + holeRightLength + 1;
+
+                        int sectionLeftLength = 0;
+                        dayBack = holeLeftLength + 1;
+                        while (true)
+                        {
+                            if (w.DaysOff.Contains(day - dayBack))
+                            {
+                                break;
+                            }
+                            if (!w.Assignments.ContainsKey(day - dayBack) || day - dayBack < 0)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                sectionLeftLength++;
+                            }
+                            dayBack++;
+                        }
+
+                        int sectionRightLength = 0;
+                        dayForward = holeRightLength + 1;
+                        while (true)
+                        {
+                            if (w.DaysOff.Contains(day + dayForward))
+                            {
+                                break;
+                            }
+                            if (!w.Assignments.ContainsKey(day + dayForward) || day + dayForward > Days)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                sectionRightLength++;
+                            }
+                            dayForward++;
+                        }
+
+                        if (sectionLeftLength + holeLength + sectionRightLength <= w.MaxConsecutiveShifts)
+                        {
+                            List<Assignment> aas = new List<Assignment>();
+                            int mw = 0;
+                            int cnt = 0;
+                            for (int i = day - holeLeftLength; i < day - holeLeftLength + holeLength; i++)
+                            {
+                                Assignment a = new Assignment();
+                                a.Day = i;
+                                a.Worker = w;
+                                a.Shift = null;
+                                if (w.ShiftOnRequests.ContainsKey(i))
+                                {
+                                    a.Shift = Shifts[w.ShiftOnRequests[i].ID];
+                                }
+                                else
+                                {
+                                    foreach (string shiftID in w.MaxShifts.Keys)
+                                    {
+                                        if (w.WorkedShiftsByType(shiftID) + 1 >= w.MaxShifts[shiftID])
+                                        {
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            Shift prevShift = null;
+                                            if (aas.Count > 0)
+                                            {
+                                                prevShift = aas.Last().Shift;
+                                            }
+                                            else
+                                            {
+                                                if (w.Assignments.ContainsKey(day - holeLeftLength - 1)) {
+                                                    prevShift = w.Assignments[day - holeLeftLength - 1].Shift;
+                                                }
+                                            }
+                                            if (prevShift != null && !Shifts[prevShift.ID].ProhibitsFollowingShifts.Contains(shiftID))
+                                            {
+                                                a.Shift = Shifts[shiftID];
+                                            }
+                                        }
+                                    }
+                                }
+                                if (a.Shift != null)
+                                {
+                                    cnt++;
+                                    aas.Add(a);
+                                    bool isWeekend = false;
+                                    if ((i + 1) % 7 == 0 || (i + 2) % 7 == 0)
+                                    {
+                                        mw++;
+                                    }
+                                    moreGiven++;
+                                }
+                            }
+                            if (w.WorkedWeekends + mw > w.MaxWeekends)
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                foreach(Assignment a in aas)
+                                {
+                                    w.Assignments[a.Day] = a;
+                                }
+                            }
+                        }
+                    }                    
+                }
+            }
+        }
+
+        public static void FixSingleDayBefore()
         {
             for (int day = 0; day < Days; day++)
             {
@@ -244,71 +452,128 @@ namespace Scheduling
                 {
                     if (w.MinConsecutiveShifts > 1 && day > 0 && day < Days - 1)
                     {
-                        if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1) && w.Assignments.ContainsKey(day + 1))
+                        if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1) && !w.Assignments.ContainsKey(day + 1))
                         {
                             // Našli smo gdje je radio samo jedan dan.
-                            int numBefore = 0;
-                            for (int onMin = 0; onMin < w.MinConsecutiveShifts; onMin++)
+                            int dayBack = 1;
+                            while(true)
                             {
-                                bool canInsertBefore = true;
-                                for (int dayBack = 1; dayBack <= w.MinConsecutiveDaysOff; dayBack++)
+                                if (w.Assignments.ContainsKey(day - dayBack) || day - dayBack < 1)
                                 {
-                                    if (w.Assignments.ContainsKey(day - onMin - dayBack))
-                                    {
-                                        canInsertBefore = false;
-                                        break;
-                                    }
-                                }
-                                if (canInsertBefore)
-                                {
-                                    numBefore++;
-                                }
-                                else {
                                     break;
                                 }
+                                dayBack++;
                             }
-                            if (numBefore + 1 >= w.MinConsecutiveShifts)
+                            int howManyBack = dayBack - w.MinConsecutiveDaysOff;
+                            int howManyNeed = w.MinConsecutiveShifts - 1;
+                            for (int numBefore = 1; numBefore <= howManyBack - howManyNeed; numBefore++)
                             {
-                                for (int onMin = 1; onMin <= w.MinConsecutiveShifts; onMin++)
+                                if (w.DaysOff.Contains(day - numBefore))
                                 {
-                                    if (day - onMin < 1)
+                                    break;
+                                }
+                                Assignment a = new Assignment();
+                                a.Day = day - numBefore;
+                                a.Worker = w;
+                                a.Shift = null;
+                                if (w.ShiftOnRequests.ContainsKey(day - numBefore))
+                                {
+                                    a.Shift = Shifts[w.ShiftOnRequests[day - numBefore].ID];
+                                }
+                                else
+                                {
+                                    foreach (string shiftID in Shifts.Keys)
                                     {
-                                        break;
-                                    }
-                                    Assignment a = new Assignment();
-                                    a.Day = day - onMin;
-                                    a.Worker = w;
-                                    a.Shift = null;
-                                    if (w.ShiftOnRequests.ContainsKey(day - onMin))
-                                    {
-                                        a.Shift = Shifts[w.ShiftOnRequests[day - onMin].ID];
-                                    }
-                                    else
-                                    {
-                                        foreach (string shiftID in Shifts.Keys)
+                                        if (w.WorkedShiftsByType(shiftID) + 1 >= w.MaxShifts[shiftID])
                                         {
-                                            if (w.WorkedShiftsByType(shiftID) + 1 >= w.MaxShifts[shiftID])
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            if (ShiftCanBeBefore(shiftID, w.Assignments[day - numBefore + 1].Shift.ID))
                                             {
-                                                continue;
+                                                a.Shift = Shifts[shiftID];
+                                                break;
                                             }
                                             else
                                             {
-                                                if (ShiftCanBeBefore(shiftID, w.Assignments[day - onMin].Shift.ID))
-                                                {
-                                                    a.Shift = w.Assignments[day - onMin].Shift;
-                                                    break;
-                                                }
-                                                else
-                                                {
-                                                    continue;
-                                                }
+                                                continue;
                                             }
                                         }
                                     }
-                                    if (a.Shift != null)
+                                }
+                                if (a.Shift != null)
+                                {
+                                    w.Assignments[day - numBefore] = a;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void FixSingleDayAfter()
+        {
+            for (int day = 0; day < Days; day++)
+            {
+                foreach (Worker w in Workers.Values)
+                {
+                    if (w.MinConsecutiveShifts > 1 && day > 0 && day < Days - 1)
+                    {
+                        if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1) && !w.Assignments.ContainsKey(day + 1))
+                        {
+                            // Našli smo gdje je radio samo jedan dan.
+                            int dayForward = 1;
+                            while (true)
+                            {
+                                if (w.Assignments.ContainsKey(day + dayForward) || day + dayForward >= Days)
+                                {
+                                    break;
+                                }
+                                dayForward++;
+                            }
+                            int howManyForward = dayForward - w.MinConsecutiveDaysOff;
+                            int howManyNeed = w.MinConsecutiveShifts - 1;
+                            for (int numAfter = 1; numAfter <= howManyForward - howManyNeed; numAfter++)
+                            {
+                                if (w.DaysOff.Contains(day + numAfter))
+                                {
+                                    break;
+                                }
+                                Assignment a = new Assignment();
+                                a.Day = day + numAfter;
+                                a.Worker = w;
+                                a.Shift = null;
+                                if (w.ShiftOnRequests.ContainsKey(day + numAfter))
+                                {
+                                    a.Shift = Shifts[w.ShiftOnRequests[day + numAfter].ID];
+                                }
+                                else
+                                {
+                                    foreach (string shiftID in Shifts.Keys)
                                     {
-                                        w.Assignments[day - onMin] = a;
+                                        if (w.WorkedShiftsByType(shiftID) + 1 >= w.MaxShifts[shiftID])
+                                        {
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            if (!w.Assignments[day + numAfter - 1].Shift.ProhibitsFollowingShifts.Contains(shiftID))
+                                            {
+                                                a.Shift = Shifts[shiftID];
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                continue;
+                                            }
+                                        }
                                     }
+                                }
+                                if (a.Shift != null)
+                                {
+                                    w.Assignments[day + numAfter] = a;
                                 }
                             }
                         }

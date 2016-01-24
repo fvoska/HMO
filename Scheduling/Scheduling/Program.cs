@@ -84,7 +84,6 @@ namespace Scheduling
             Console.WriteLine("Average (per day) number of workers needed (for all shifts together): " + Math.Round((double) sumDailyRequirement / Instance.Days, 2));
 
             Instance.Assign();
-            Instance.PostAssign();
 
             StreamWriter ofile = new StreamWriter("test.txt");
             foreach (Worker w in Instance.Workers.Values)
