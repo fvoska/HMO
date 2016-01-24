@@ -146,7 +146,7 @@ namespace Scheduling
 
                     // Nikada nećemo u jednom danu uzeti više od preporučenog broja radnika, ali možda nećemo moći odabrati točno taj broj nego neki manji broj jer nam nije preostalo dovoljno radnika (npr. sve smo ih odbacili jakim ograničenjima).
                     // (3.bullet slabih ogr., broj radnika smjene)
-                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement; assignedNumberOfWorkers++)
+                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement * 2; assignedNumberOfWorkers++)
                     {
                         Console.WriteLine("\t\tTrying to assign worker " + (assignedNumberOfWorkers + 1) + "/" + coverRequirements.Requirement);
 
@@ -311,6 +311,10 @@ namespace Scheduling
                             break;
                         }
                         if (w.WorkedShiftsByType(lastShift.ID) >= w.MaxShifts[lastShift.ID])
+                        {
+                            break;
+                        }
+                        if (w.WorkedMinutes + lastShift.Length > w.MaxTotalMinutes)
                         {
                             break;
                         }

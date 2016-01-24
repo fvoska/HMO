@@ -123,3 +123,6 @@ for (d = 0; d < broj dana; d++)
 		}
 	}
 }
+
+Dodatan korak:
+Pokušaj proširiti radno vrijeme (dodati smjene u nadolazeće dane) kako bi se doseglo minimalno potrebno radno vrijeme.
