@@ -199,23 +199,11 @@ namespace Scheduling
                         // Ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja uzastopnih radnih dana(smjena, 1 smjena == 1 dan) koje moraju odraditi za redom:
                         //      Odbaci sve ostale radnike i nastavi dalje samo s onima koji su u opasnosti da ne zadovolje ograničenje minimalnog broja uzastopnih radnih dana.
                         // (6.bullet jakih)
-                        /*bool someoneHasNotWorkedEnoughConsecutiveShifts = checkForMinConsecutiveShifts(potentialWorkers, day);
-                        Dictionary<string, Worker> tempWorkers = potentialWorkers.ToDictionary(d => d.Key, d => d.Value);
-                        if (someoneHasNotWorkedEnoughConsecutiveShifts)
+                        var tmp = checkForMinConsecutiveShifts(potentialWorkers, day);
+                        if (tmp.Count > 0)
                         {
-                            removeWhoWorkedMinConsecutiveShifts(tempWorkers, day);
-                            if (tempWorkers.Count > 0)
-                            {
-                                // Preostali su oni koji nisu odradili minimalni broj uzastopnih smjena.
-                                Console.WriteLine("\t\t\tConsidering " + tempWorkers.Count + " workers after removing workers who worked min consecutive days.");
-                                potentialWorkers = tempWorkers;
-                            }
-                            else
-                            {
-                                Console.WriteLine("\t\t\tAll workers have worked min consecutive days.");
-                                //potentialWorkers = new Dictionary<string, Worker>();
-                            }
-                        }*/
+                            potentialWorkers = tmp;
+                        }
 
                         if (potentialWorkers.Count > 0)
                         {
@@ -262,9 +250,79 @@ namespace Scheduling
                     }
                 }
             }
+            ExpandRight();
             //TryFill();
             //FixSingleDayBefore();
             //FixSingleDayAfter();
+        }
+
+        public static void ExpandRight()
+        {
+            foreach (Worker w in Workers.Values)
+            {
+                for (int day = 0; day < Days; day++)
+                {
+                    if (!w.Assignments.ContainsKey(day))
+                    {
+                        continue;
+                    }
+                    Shift lastShift = w.Assignments[day].Shift;
+                    int numConsecutive = 1;
+                    for (int d = day - 1; d >= 0; d--)
+                    {
+                        if (w.Assignments.ContainsKey(d))
+                        {
+                            numConsecutive++;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    int numFree = 0;
+                    while (true)
+                    {
+                        Console.WriteLine(day + " " + numFree);
+                        if (day + numFree + 1 >= Days)
+                        {
+                            break;
+                        }
+                        if (w.Assignments.ContainsKey(day + numFree + 1))
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            numFree++;
+                        }
+                    }
+                    for (int d = day + 1; d < day + 1 + numFree - w.MinConsecutiveDaysOff; d++)
+                    {
+                        if ((d + 1) % 7 == 0 || (d + 2) % 7 == 0)
+                        {
+                            break;
+                        }
+                        if (w.DaysOff.Contains(d))
+                        {
+                            break;
+                        }
+                        if (numConsecutive >= w.MaxConsecutiveShifts)
+                        {
+                            break;
+                        }
+                        if (w.WorkedShiftsByType(lastShift.ID) >= w.MaxShifts[lastShift.ID])
+                        {
+                            break;
+                        }
+                        Assignment a = new Assignment();
+                        a.Day = d;
+                        a.Worker = w;
+                        a.Shift = lastShift;
+                        w.Assignments[d] = a;
+                        numConsecutive++;
+                    }
+                }
+            }
         }
 
         public static void TryFill()
@@ -410,7 +468,16 @@ namespace Scheduling
                                             }
                                             if (prevShift != null && !Shifts[prevShift.ID].ProhibitsFollowingShifts.Contains(shiftID))
                                             {
-                                                a.Shift = Shifts[shiftID];
+                                                if (w.Assignments.ContainsKey(day + holeRightLength + 1) && !w.Assignments[day + holeRightLength + 1].Shift.ProhibitsFollowingShifts.Contains(shiftID))
+                                                {
+                                                    a.Shift = Shifts[shiftID];
+                                                    break;
+                                                }
+                                                else if (!w.Assignments.ContainsKey(day + holeRightLength + 1))
+                                                {
+                                                    a.Shift = Shifts[shiftID];
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
@@ -767,8 +834,9 @@ namespace Scheduling
             }
         }
 
-        private static bool checkForMinConsecutiveShifts(Dictionary<string, Worker> workers, int day)
+        private static Dictionary<string, Worker> checkForMinConsecutiveShifts(Dictionary<string, Worker> workers, int day)
         {
+            Dictionary<string, Worker> workers_out = new Dictionary<string, Worker>();
             bool someoneHasNotWorkedEnough = false;
             foreach (Worker w in workers.Values)
             {
@@ -784,6 +852,7 @@ namespace Scheduling
                         if (!w.Assignments.ContainsKey(day - d))
                         {
                             hasHadEnoughConsecutiveDays = false;
+                            workers_out[w.ID] = w;
                             break;
                         }
                     }
@@ -794,7 +863,7 @@ namespace Scheduling
                     }
                 }
             }
-            return someoneHasNotWorkedEnough;
+            return workers_out;
         }
 
         
