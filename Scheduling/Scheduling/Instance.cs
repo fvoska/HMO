@@ -146,7 +146,7 @@ namespace Scheduling
 
                     // Nikada nećemo u jednom danu uzeti više od preporučenog broja radnika, ali možda nećemo moći odabrati točno taj broj nego neki manji broj jer nam nije preostalo dovoljno radnika (npr. sve smo ih odbacili jakim ograničenjima).
                     // (3.bullet slabih ogr., broj radnika smjene)
-                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement + 2; assignedNumberOfWorkers++)
+                    for (int assignedNumberOfWorkers = 0; assignedNumberOfWorkers < coverRequirements.Requirement * 1.5; assignedNumberOfWorkers++)
                     {
                         Console.WriteLine("\t\tTrying to assign worker " + (assignedNumberOfWorkers + 1) + "/" + coverRequirements.Requirement);
 
@@ -199,11 +199,11 @@ namespace Scheduling
                         // Ako među preostalim korisnicima postoji jedan ili više korisnika za koje bi ako ne dobiju neku smjenu ovog dana bilo prekršeno ograničenje minimalnog broja uzastopnih radnih dana(smjena, 1 smjena == 1 dan) koje moraju odraditi za redom:
                         //      Odbaci sve ostale radnike i nastavi dalje samo s onima koji su u opasnosti da ne zadovolje ograničenje minimalnog broja uzastopnih radnih dana.
                         // (6.bullet jakih)
-                        var tmp = checkForMinConsecutiveShifts(potentialWorkers, day);
+                        /*var tmp = checkForMinConsecutiveShifts(potentialWorkers, day);
                         if (tmp.Count > 0)
                         {
                             potentialWorkers = tmp;
-                        }
+                        }*/
 
                         if (potentialWorkers.Count > 0)
                         {
@@ -214,6 +214,10 @@ namespace Scheduling
                             Worker aw = null;
                             foreach (Worker ww in workersByRemainingMinutes)
                             {
+                                if (ww.DaysOff.Contains(day + 1) && !ww.Assignments.ContainsKey(day - 1))
+                                {
+                                    continue;
+                                }
                                 if (ww.ShiftOffRequests.ContainsKey(day))
                                 {
                                     continue;
@@ -251,9 +255,179 @@ namespace Scheduling
                 }
             }
             ExpandRight();
+            ExpandLeft();
+            FixMaxConsecutive();
+            RemoveSingles();
+            ExpandRight();
+            ExpandLeft();
+            FixMaxConsecutive();
+            RemoveMinConsecutive();
+            SplitMinRest();
             //TryFill();
             //FixSingleDayBefore();
             //FixSingleDayAfter();
+        }
+
+        public static void RemoveMinConsecutive()
+        {
+            foreach (Worker w in Workers.Values)
+            {
+                for (int day = 1; day < Days; day++)
+                {
+                    if (!w.Assignments.ContainsKey(day - 1) && w.Assignments.ContainsKey(day))
+                    {
+                        int sectionLength = 0;
+                        while(true)
+                        {
+                            if (day + sectionLength + 1 >= Days)
+                            {
+                                break;
+                            }
+                            if (!w.Assignments.ContainsKey(day + sectionLength)) {
+                                break;
+                            }
+                            else
+                            {
+                                sectionLength++;
+                            }
+                        }
+                        if (sectionLength < w.MinConsecutiveShifts)
+                        {
+                            Console.WriteLine("MIN CON S");
+                            Console.WriteLine(sectionLength);
+                            Console.WriteLine(w.ID);
+                            Console.WriteLine(day);
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void SplitMinRest()
+        {
+            foreach(Worker w in Workers.Values)
+            {
+                if (w.WorkedMinutes >= w.MinTotalMinutes)
+                {
+                    continue;
+                }
+                for (int day = 0; day < Days; day++)
+                {
+                    if (w.DaysOff.Contains(day))
+                    {
+                        continue;
+                    }
+                    if (!w.Assignments.ContainsKey(day) && w.Assignments.ContainsKey(day - 1))
+                    {
+                        // nađena rupa.
+                        int holeLength = 0;
+                        while (true)
+                        {
+                            if (day + holeLength >= Days)
+                            {
+                                break;
+                            }
+                            if (w.Assignments.ContainsKey(day + holeLength))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                holeLength++;
+                            }
+                        }
+
+                        int sectionLeft = 0;
+                        while (true)
+                        {
+                            if (day - sectionLeft <= 0)
+                            {
+                                break;
+                            }
+                            if (!w.Assignments.ContainsKey(day - sectionLeft - 1))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                sectionLeft++;
+                            }
+                        }
+
+                        int sectionRight = 0;
+                        while (true)
+                        {
+                            if (day + sectionRight >= Days)
+                            {
+                                break;
+                            }
+                            if (!w.Assignments.ContainsKey(day + holeLength + sectionRight))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                sectionRight++;
+                            }
+                        }
+
+                        if (holeLength == w.MinConsecutiveDaysOff)
+                        {
+                            if (sectionLeft < w.MaxConsecutiveShifts)
+                            {
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void FixMaxConsecutive()
+        {
+            foreach (Worker w in Workers.Values)
+            {
+                for (int day = 0; day < Days; day++)
+                {
+                    if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1)) {
+                        int sectionLength = 0;
+                        while (true)
+                        {
+                            if (!w.Assignments.ContainsKey(day + sectionLength))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                sectionLength++;
+                            }
+                        }
+
+                        for (int d = 1; d <= sectionLength - w.MaxConsecutiveShifts; d++)
+                        {
+                            w.Assignments.Remove(day + sectionLength - d);
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void RemoveSingles()
+        {
+            foreach (Worker w in Workers.Values)
+            {
+                for (int day = 0; day < Days; day++)
+                {
+                    if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1) && !w.Assignments.ContainsKey(day + 1))
+                    {
+                        if (w.MinConsecutiveShifts > 1)
+                        {
+                            w.Assignments.Remove(day);
+                            continue;
+                        }
+                    }
+                }
+            }
         }
 
         public static void ExpandRight()
@@ -324,6 +498,92 @@ namespace Scheduling
                         a.Shift = lastShift;
                         w.Assignments[d] = a;
                         numConsecutive++;
+                    }
+                }
+            }
+        }
+
+        public static void ExpandLeft()
+        {
+            foreach (Worker w in Workers.Values)
+            {
+                for (int day = 1; day < Days; day++)
+                {
+                    if (w.Assignments.ContainsKey(day) && !w.Assignments.ContainsKey(day - 1))
+                    {
+                        Shift nextShift = w.Assignments[day].Shift;
+                        int back = 0;
+                        while (true)
+                        {
+                            if (day - back - 1 < 0)
+                            {
+                                break;
+                            }
+                            if (w.Assignments.ContainsKey(day - back - 1))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                back++;
+                            }
+                        }
+                        int sectionLength = 0;
+                        while (true)
+                        {
+                            if (!w.Assignments.ContainsKey(day + sectionLength))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                sectionLength++;
+                            }
+                        }
+                        if (sectionLength >= w.MaxConsecutiveShifts)
+                        {
+                            continue;
+                        }
+                        if (back <= w.MinConsecutiveDaysOff)
+                        {
+                            continue;
+                        }
+
+                        for (int d = 1; d < back - w.MinConsecutiveDaysOff; d++)
+                        {
+                            if (w.DaysOff.Contains(day - d))
+                            {
+                                break;
+                            }
+                            Shift possibleShift = null;
+                            foreach (Shift s in Shifts.Values)
+                            {
+                                if (ShiftCanBeBefore(s.ID, nextShift.ID))
+                                {
+                                    possibleShift = s;
+                                    break;
+                                }
+                            }
+                            possibleShift = nextShift;
+                            if (possibleShift != null)
+                            {
+                                if (w.WorkedMinutes + possibleShift.Length > w.MaxTotalMinutes)
+                                {
+                                    break;
+                                }
+                                Assignment a = new Assignment();
+                                a.Day = day - d;
+                                a.Shift = possibleShift;
+                                a.Worker = w;
+
+                                w.Assignments[day - d] = a;
+                                nextShift = possibleShift;
+
+                                Console.WriteLine("Left");
+                                Console.WriteLine(w.ID);
+                                Console.WriteLine(day - d);
+                            }
+                        }
                     }
                 }
             }

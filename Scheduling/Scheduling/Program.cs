@@ -88,10 +88,9 @@ namespace Scheduling
             StreamWriter ofile = new StreamWriter("test.txt");
             foreach (Worker w in Instance.Workers.Values)
             {
-                //ofile.Write(w.WorkedMinutes + "\t\t");
                 for (int day = 0; day < Instance.Days; day++)
                 {
-                    string a = "";
+                    string a = " ";
                     if (w.Assignments.ContainsKey(day))
                     {
                         a = w.Assignments[day].Shift.ID;
@@ -101,6 +100,8 @@ namespace Scheduling
                 }
                 ofile.Write('\n');
             }
+
+            ofile.Close();
 
             Console.WriteLine("Done, check the file.");
 
